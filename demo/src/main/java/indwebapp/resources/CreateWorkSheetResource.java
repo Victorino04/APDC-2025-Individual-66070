@@ -69,9 +69,20 @@ public class CreateWorkSheetResource {
 
       if (token.role.equals("backoffice")) {
         Entity.Builder worksheetBuilder = Entity.newBuilder(worksheetKey);
-        worksheetBuilder.set("description", worksheet.description)
-        .set("target", worksheet.target)
-        .set("awardState", worksheet.awardState);
+        if (worksheetEntity == null && !worksheet.isValid()) {
+          transaction.rollback();
+          logger.warning("Invalid worksheet data");
+          return Response.status(Response.Status.BAD_REQUEST).entity("Invalid worksheet data").build();
+        }
+        if (worksheet.description != null) {
+          worksheetBuilder.set("description", worksheet.description);
+        }
+        if (worksheet.target != null) {
+          worksheetBuilder.set("target", worksheet.target);
+        }
+        if (worksheet.awardState != null) {
+          worksheetBuilder.set("awardState", worksheet.awardState);
+        }
 
         if (worksheet.awardState.equals("awarded")) {
           Key entityKey = datastore.newKeyFactory().setKind("Entity").newKey(worksheet.entityId);
@@ -81,10 +92,24 @@ public class CreateWorkSheetResource {
             logger.warning("Entity not found: " + worksheet.entityId);
             return Response.status(Response.Status.NOT_FOUND).entity("Entity not found").build();
           }
+          if (worksheet.awardDate == null || worksheet.startDate == null || worksheet.endDate == null || worksheet.entityAward == null || worksheet.entityId == null) {
+            transaction.rollback();
+            logger.warning("Invalid awarding: " + worksheet.reference);
+            return Response.status(Response.Status.BAD_REQUEST).entity("Invalid awarding").build();
+          }
           if (!entity.getString("role").equals("partner")) {
             transaction.rollback();
             logger.warning("Entity " + worksheet.entityId + " is not a partner.");
             return Response.status(Response.Status.FORBIDDEN).entity("Entity is not a partner").build();
+          }
+          if (worksheet.entityNIF != null) {
+            worksheetBuilder.set("entityNIF", worksheet.entityNIF);
+          }
+          if (worksheet.workState != null) {
+            worksheetBuilder.set("workState", worksheet.workState);
+          }
+          if (worksheet.observations != null) {
+            worksheetBuilder.set("observations", worksheet.observations);
           }
           worksheetBuilder.set("awardDate", worksheet.awardDate)
             .set("startDate", worksheet.startDate)

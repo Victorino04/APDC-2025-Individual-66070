@@ -184,6 +184,9 @@ public class ChangePropertiesResource {
     if (data.username == null || data.username.isEmpty()) {
       return Response.status(Status.BAD_REQUEST).entity("Username is required").build();
     }
+    if (data.state == null || data.state.isEmpty()) {
+      return Response.status(Status.BAD_REQUEST).entity("Account state is required").build();
+    }
 
     Transaction transaction = datastore.newTransaction();
     try {
@@ -279,14 +282,14 @@ public class ChangePropertiesResource {
       LOGGER.warning("Invalid token for user: " + token.user);
       return Response.status(Status.UNAUTHORIZED).entity("Invalid token").build();
     }
-    if (data.username == null || data.username.isEmpty()) {
+    if (data.userId == null || data.userId.isEmpty()) {
       return Response.status(Status.BAD_REQUEST).entity("Username is required").build();
     }
 
     Transaction transaction = datastore.newTransaction();
     try {
 
-      Key userKeyToChange = datastore.newKeyFactory().setKind("User").newKey(data.username);
+      Key userKeyToChange = datastore.newKeyFactory().setKind("User").newKey(data.userId);
       Entity userToChange = transaction.get(userKeyToChange);
 
       if (userToChange == null) {
@@ -297,7 +300,7 @@ public class ChangePropertiesResource {
       switch(token.role) {
         case "admin" -> {
 
-            if (!data.username.equals(data.username)) {
+            if (!data.userId.equals(data.username) && data.username != null) {
               Key newUserKey = datastore.newKeyFactory().setKind("User").newKey(data.username);
               Entity newUser = transaction.get(newUserKey);
   
@@ -315,13 +318,20 @@ public class ChangePropertiesResource {
               
             }
 
-            userToChange = updateUserEntity(userToChange, data)
-                .set("username", data.username)
-                .set("email", data.email)
-                .set("fullname", data.fullname)
-                .set("role", data.role)
-                .set("accountState", data.accountState)
-                .build();
+            Entity.Builder userBuilder = updateUserEntity(userToChange, data);
+            if (data.email != null) {
+              userBuilder.set("email", data.email);
+            }
+            if (data.fullname != null) {
+              userBuilder.set("fullname", data.fullname);
+            }
+            if (data.role != null) {
+              userBuilder.set("role", blank(data.role, "enduser"));
+            }
+            if (data.accountState != null) {
+              userBuilder.set("accountState", blank(data.accountState, "unactive"));
+            }
+            userToChange = userBuilder.build();
             
             transaction.put(userToChange);
             transaction.commit();
@@ -351,11 +361,19 @@ public class ChangePropertiesResource {
                 transaction.rollback();
                 return Response.status(Status.FORBIDDEN).entity(ILLEGAL_CHANGE_OF_ROLE + data.role).build();
             }
-            userToChange = updateUserEntity(userToChange, data)
-                .set("fullname", data.fullname)
-                .set("role", data.role)
-                .set("accountState", data.accountState)
-                .build();
+
+            Entity.Builder userBuilder = updateUserEntity(userToChange, data);
+            
+            if (data.fullname != null) {
+              userBuilder.set("fullname", data.fullname);
+            }
+            if (data.role != null) {
+              userBuilder.set("role", blank(data.role, "enduser"));
+            }
+            if (data.accountState != null) {
+              userBuilder.set("accountState", blank(data.accountState, "unactive"));
+            }
+            userToChange = userBuilder.build();
             transaction.put(userToChange);
             transaction.commit();
             }
@@ -372,6 +390,10 @@ public class ChangePropertiesResource {
               .build();
           transaction.put(userToChange);
           transaction.commit();
+        }
+        default -> {
+          transaction.rollback();
+          return Response.status(Status.FORBIDDEN).entity("You are not allowed to change account attributes" + token.role).build();
         }
 
       }
@@ -480,16 +502,39 @@ public class ChangePropertiesResource {
   }
 
   private Entity.Builder updateUserEntity(Entity userToChange, UserData data) {
-    return Entity.newBuilder(userToChange)
-        .set("password", DigestUtils.sha512Hex(data.password))
-        .set("phone", data.phone)
-        .set("visibility", data.visibility)
-        .set("cc", data.cc)
-        .set("NIF", data.NIF)
-        .set("employer", data.employer)
-        .set("function", data.function)
-        .set("address", data.address)
-        .set("employerNIF", data.employerNIF);
+    Entity.Builder builder = Entity.newBuilder(userToChange);
+    if (data.password != null) {
+      builder.set("password", DigestUtils.sha512Hex(data.password));
+    }
+    if (data.phone != null) {
+      builder.set("phone", data.phone);
+    }
+    if (data.visibility != null) {
+      builder.set("visibility", data.visibility);
+    }
+    if (data.cc != null) {
+      builder.set("cc", blank(data.cc, "NOT DEFINED"));
+    }
+    if (data.NIF != null) {
+      builder.set("NIF", blank(data.NIF, "NOT DEFINED"));
+    }
+    if (data.employer != null) {
+      builder.set("employer", blank(data.employer, "NOT DEFINED"));
+    }
+    if (data.function != null) {
+      builder.set("function", blank(data.function, "NOT DEFINED"));
+    }
+    if (data.address != null) {
+      builder.set("address", blank(data.address, "NOT DEFINED"));
+    }
+    if (data.employerNIF != null) {
+      builder.set("employerNIF", blank(data.employerNIF, "NOT DEFINED"));
+    }
+    return builder;
+  }
+
+  private String blank(String attribute, String value) {
+    return attribute.isBlank() ? value : attribute;
   }
 
   private boolean backOfficeChangeRole(String role) {

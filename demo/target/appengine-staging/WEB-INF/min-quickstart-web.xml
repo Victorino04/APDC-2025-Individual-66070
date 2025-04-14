@@ -438,9 +438,9 @@
                 
         </cookie-config>
             
-        <tracking-mode>COOKIE</tracking-mode>
-            
         <tracking-mode>URL</tracking-mode>
+            
+        <tracking-mode>COOKIE</tracking-mode>
           
     </session-config>
     

@@ -2,6 +2,10 @@ package indwebapp.util;
 
 import jakarta.ejb.Singleton;
 
+import java.io.IOException;
+
+import org.apache.commons.codec.digest.DigestUtils;
+
 import com.google.cloud.datastore.*;
 
 @Singleton
@@ -32,7 +36,7 @@ public class RootUserInstance {
     if (user == null) {
       user = Entity.newBuilder(userKey)
           .set("username", username)
-          .set("password", password)
+          .set("password", DigestUtils.sha512Hex(password))
           .set("email", email)
           .set("phone", phone)
           .set("fullname", fullname)
